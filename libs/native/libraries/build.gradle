@@ -19,7 +19,9 @@ configurations {
 }
 
 var zstdVersion = "1.5.7"
-var vecVersion = "1.0.44"
+// Allow vecVersion to be overridden via Gradle property (-PvecVersion=...)
+// Default to the base version; PR builds should override via -PvecVersion=1.0.58-pr144631.1
+var vecVersion = project.hasProperty("vecVersion") ? project.property("vecVersion") : "1.0.58"
 
 repositories {
   exclusiveContent {
