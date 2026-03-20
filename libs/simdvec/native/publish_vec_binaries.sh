@@ -20,12 +20,41 @@ if [ -z "$ARTIFACTORY_API_KEY" ]; then
   exit 1;
 fi
 
-VERSION="1.0.44"
+# Parse command line arguments
+PR_NUMBER=""
+ITERATION="1"
+
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    --pr)
+      PR_NUMBER="$2"
+      shift 2
+      ;;
+    --iter)
+      ITERATION="$2"
+      shift 2
+      ;;
+    *)
+      echo "Unknown option: $1"
+      echo "Usage: $0 [--pr <PR_NUMBER>] [--iter <ITERATION>]"
+      exit 1
+      ;;
+  esac
+done
+
+VERSION="1.0.58"
 ARTIFACTORY_REPOSITORY="${ARTIFACTORY_REPOSITORY:-https://artifactory.elastic.dev/artifactory/elasticsearch-native/}"
 TEMP=$(mktemp -d)
 
-if curl -sS -I --fail --location "${ARTIFACTORY_REPOSITORY}/org/elasticsearch/vec/${VERSION}/vec-${VERSION}.zip" > /dev/null 2>&1; then
-  echo "Error: Artifacts already exist for version '${VERSION}'. Bump version before republishing."
+# Determine artifact version based on whether this is a PR build
+if [ -n "$PR_NUMBER" ]; then
+  ARTIFACT_VERSION="${VERSION}-pr${PR_NUMBER}.${ITERATION}"
+else
+  ARTIFACT_VERSION="${VERSION}"
+fi
+
+if curl -sS -I --fail --location "${ARTIFACTORY_REPOSITORY}/org/elasticsearch/vec/${ARTIFACT_VERSION}/vec-${ARTIFACT_VERSION}.zip" > /dev/null 2>&1; then
+  echo "Error: Artifacts already exist for version '${ARTIFACT_VERSION}'. Bump version before republishing."
   exit 1;
 fi
 
@@ -50,6 +79,6 @@ cp build/libs/vec/shared/aarch64/libvec.so $TEMP/linux-aarch64/
 cp build/libs/vec/shared/amd64/libvec.so $TEMP/linux-x64/
 
 echo 'Uploading to Artifactory...'
-(cd $TEMP && zip -rq - .) | curl -sS -X PUT -H "X-JFrog-Art-Api: ${ARTIFACTORY_API_KEY}" --data-binary @- --location "${ARTIFACTORY_REPOSITORY}/org/elasticsearch/vec/${VERSION}/vec-${VERSION}.zip"
+(cd $TEMP && zip -rq - .) | curl -sS -X PUT -H "X-JFrog-Art-Api: ${ARTIFACTORY_API_KEY}" --data-binary @- --location "${ARTIFACTORY_REPOSITORY}/org/elasticsearch/vec/${ARTIFACT_VERSION}/vec-${ARTIFACT_VERSION}.zip"
 
 rm -rf $TEMP
